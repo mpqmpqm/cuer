@@ -1,10 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { config as dotenv } from "dotenv";
 import { z } from "zod";
 
+dotenv({ path: "../.env.local" });
+
 const anthropic = new Anthropic();
-const server = new McpServer({
+export const server = new McpServer({
   name: "mcp",
   version: "1.0.0",
 });
@@ -15,22 +18,29 @@ server.tool(
   { query: z.string() },
   async ({ query }) => {
     try {
-      const msg = await anthropic.messages.create({
+      const stream = await anthropic.messages.create({
         model: "claude-opus-4-20250514",
-        max_tokens: 20_000,
+        max_tokens: 20480,
         messages: [{ role: "user", content: query }],
         thinking: {
           type: "enabled",
-          budget_tokens: 5_000,
+          budget_tokens: 4096,
         },
+        stream: true,
       });
+
+      let aggregatedText = "";
+      for await (const chunk of stream) {
+        if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+          aggregatedText += chunk.delta.text;
+        }
+      }
 
       return {
         content: [
           {
             type: "text",
-            text:
-              msg.content[0].type === "text" ? msg.content[0].text : "No text response",
+            text: aggregatedText || "No text response",
           },
         ],
       };
