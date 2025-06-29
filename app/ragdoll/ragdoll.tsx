@@ -46,24 +46,24 @@ export type Bone = readonly [JointName, JointName];
  *  Configuration & Defaults
  * -------------------------------------------------------------------------*/
 
-/** Default T‑pose like skeleton */
+/** Default T‑pose with feet at y=0 */
 const DEFAULT_SKELETON: Record<JointName, Vec3> = {
-  head: [0, 1.6, 0],
-  neck: [0, 1.4, 0],
-  leftShoulder: [-0.3, 1.2, 0],
-  rightShoulder: [0.3, 1.2, 0],
-  leftElbow: [-0.5, 0.8, 0],
-  rightElbow: [0.5, 0.8, 0],
-  leftWrist: [-0.6, 0.4, 0],
-  rightWrist: [0.6, 0.4, 0],
-  spine: [0, 0.8, 0],
-  pelvis: [0, 0, 0],
-  leftHip: [-0.15, -0.1, 0],
-  rightHip: [0.15, -0.1, 0],
-  leftKnee: [-0.15, -0.6, 0],
-  rightKnee: [0.15, -0.6, 0],
-  leftAnkle: [-0.15, -1.2, 0],
-  rightAnkle: [0.15, -1.2, 0],
+  head: [0, 2.8, 0.1],
+  neck: [0, 2.6, 0],
+  leftShoulder: [-0.3, 2.4, 0.05],
+  rightShoulder: [0.3, 2.4, -0.05],
+  leftElbow: [-0.5, 2.0, 0.15],
+  rightElbow: [0.5, 2.0, -0.15],
+  leftWrist: [-0.6, 1.6, 0.2],
+  rightWrist: [0.6, 1.6, -0.2],
+  spine: [0, 2.0, 0],
+  pelvis: [0, 1.2, 0],
+  leftHip: [-0.15, 1.1, 0.05],
+  rightHip: [0.15, 1.1, -0.05],
+  leftKnee: [-0.15, 0.6, 0.1],
+  rightKnee: [0.15, 0.6, -0.1],
+  leftAnkle: [-0.15, 0, 0.05],
+  rightAnkle: [0.15, 0, -0.05],
 };
 
 /** Skeleton graph (bone list) */
@@ -130,6 +130,8 @@ const dist = (a: Vec3, b: Vec3) => vec3.len(vec3.sub(a, b));
 interface SkeletonContextValue {
   joints: Record<JointName, Vec3>;
   moveJoint: (joint: JointName, position: Vec3) => void;
+  isDragging: boolean;
+  setIsDragging: (dragging: boolean) => void;
 }
 
 const SkeletonContext = createContext<SkeletonContextValue | null>(null);
@@ -160,6 +162,9 @@ const SkeletonProvider: React.FC<SkeletonProviderProps> = ({
     ...DEFAULT_SKELETON,
     ...initialPose,
   });
+  
+  // Global dragging state
+  const [isDragging, setIsDragging] = useState(false);
 
   // Pre‑compute bone lengths once
   const boneLengths = useMemo(() => {
@@ -206,7 +211,7 @@ const SkeletonProvider: React.FC<SkeletonProviderProps> = ({
     });
   };
 
-  const value = useMemo(() => ({ joints, moveJoint }), [joints]);
+  const value = useMemo(() => ({ joints, moveJoint, isDragging, setIsDragging }), [joints, isDragging]);
 
   return <SkeletonContext.Provider value={value}>{children}</SkeletonContext.Provider>;
 };
@@ -234,31 +239,44 @@ interface JointProps {
 
 const Joint: React.FC<JointProps> = ({ name, radius = 0.05 }) => {
   const ref = useRef<THREE.Mesh>(null!);
-  const { joints, moveJoint } = useSkeleton();
+  const { joints, moveJoint, setIsDragging } = useSkeleton();
   const { camera, mouse, raycaster } = useThree();
   const [dragging, setDragging] = useState(false);
 
-  // Drag handling – project pointer onto xy‑plane (z=0)
+  // 3D drag handling - use camera-aligned plane at joint's depth
   useFrame(() => {
-    if (dragging) {
+    if (dragging && ref.current) {
       raycaster.setFromCamera(mouse, camera);
-      const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-      const pt = new THREE.Vector3();
-      raycaster.ray.intersectPlane(plane, pt);
-      moveJoint(name, [pt.x, pt.y, pt.z]);
+
+      // Create a plane perpendicular to camera direction at joint's position
+      const jointPos = new THREE.Vector3(...joints[name]);
+      const cameraDir = new THREE.Vector3();
+      camera.getWorldDirection(cameraDir);
+
+      // Create plane at joint position facing camera
+      const plane = new THREE.Plane(cameraDir, -cameraDir.dot(jointPos));
+      const intersectPoint = new THREE.Vector3();
+
+      if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
+        moveJoint(name, [intersectPoint.x, intersectPoint.y, intersectPoint.z]);
+      }
     }
   });
 
   const onPointerDown = (e: THREE.Event) => {
     e.stopPropagation();
     setDragging(true);
+    setIsDragging(true);
   };
 
   useEffect(() => {
-    const up = () => setDragging(false);
+    const up = () => {
+      setDragging(false);
+      setIsDragging(false);
+    };
     window.addEventListener("pointerup", up);
     return () => window.removeEventListener("pointerup", up);
-  }, []);
+  }, [setIsDragging]);
 
   return (
     <Sphere
@@ -266,11 +284,14 @@ const Joint: React.FC<JointProps> = ({ name, radius = 0.05 }) => {
       args={[radius, 16, 16]}
       position={joints[name]}
       onPointerDown={onPointerDown}
+      castShadow
     >
       <meshStandardMaterial
         color={dragging ? "#ff6b6b" : REGION_COLOR[name] ?? "#4ecdc4"}
         emissive={dragging ? "#ff6b6b" : "#000"}
         emissiveIntensity={dragging ? 0.3 : 0}
+        metalness={0.3}
+        roughness={0.7}
       />
     </Sphere>
   );
@@ -290,13 +311,20 @@ const BoneLines: React.FC = () => {
 
 /** Higher‑level skeleton component */
 const Skeleton: React.FC = () => (
-  <SkeletonProvider>
+  <>
     <BoneLines />
     {JOINTS.map((j) => (
       <Joint key={j} name={j} />
     ))}
-  </SkeletonProvider>
+  </>
 );
+
+/** OrbitControls wrapper that respects dragging state */
+const DraggableOrbitControls: React.FC = () => {
+  const { isDragging } = useSkeleton();
+  
+  return <OrbitControls enabled={!isDragging} enableZoom enableRotate enablePan />;
+};
 
 /* -------------------------------------------------------------------------
  *  Scene
@@ -304,12 +332,25 @@ const Skeleton: React.FC = () => (
 
 export const RagdollScene: React.FC = () => (
   <div style={{ width: "100vw", height: "100vh" }}>
-    <Canvas camera={{ position: [0, 0, 3], fov: 60 }}>
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[10, 10, 5]} intensity={1} />
-      <OrbitControls enableZoom enableRotate={false} />
-      <Skeleton />
-      <gridHelper args={[10, 10, "#303030", "#303030"]} rotation={[Math.PI / 2, 0, 0]} />
+    <Canvas camera={{ position: [2, 1, 3], fov: 60 }} shadows>
+      <SkeletonProvider>
+        <ambientLight intensity={0.5} />
+        <directionalLight
+          position={[10, 10, 5]}
+          intensity={1}
+          castShadow
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
+        />
+        <DraggableOrbitControls />
+        <Skeleton />
+        <gridHelper args={[10, 10, "#303030", "#303030"]} />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.3, 0]} receiveShadow>
+          <planeGeometry args={[10, 10]} />
+          <shadowMaterial opacity={0.3} />
+        </mesh>
+        <axesHelper args={[5]} />
+      </SkeletonProvider>
     </Canvas>
   </div>
 );
