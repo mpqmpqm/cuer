@@ -5,7 +5,23 @@ import OpenAI from "openai";
 import invariant from "tiny-invariant";
 import { calculateAxisJSONSchema, Vec3 } from "../scene/grid";
 
-const MESSAGE = (query: string, state: Array<Vec3>) => `${query}
+const keys = [
+  "head",
+  "chest",
+  "rightShoulder",
+  "leftShoulder",
+  "rightHand",
+  "leftHand",
+  "sacrum",
+  "rightHip",
+  "leftHip",
+  "rightKnee",
+  "leftKnee",
+  "leftFoot",
+  "rightFoot",
+];
+
+const MESSAGE = (query: string, state: Record<string, Vec3>) => `${query}
 State: ${JSON.stringify(state, null, 2)}`;
 
 const DESCRIPTION = `Plot a point in a 3D grid.
@@ -18,7 +34,7 @@ const openai = (() => {
   const ai = new OpenAI({});
   return async (messages: OpenAI.Responses.ResponseInput) => {
     const response = await ai.responses.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4o",
       input: messages,
       tools: [
         {
@@ -30,6 +46,28 @@ const openai = (() => {
             type: "object",
             properties: calculateAxisJSONSchema("openai"),
             required: ["x", "y", "z"],
+            additionalProperties: false,
+          },
+        },
+        {
+          type: "function",
+          name: "pose",
+          strict: true,
+          description: "Pose a humanoid figure in 3D space.",
+          parameters: {
+            type: "object",
+            properties: Object.fromEntries(
+              keys.map((key) => [
+                key,
+                {
+                  type: "object",
+                  properties: calculateAxisJSONSchema("claude"),
+                  required: ["x", "y", "z"],
+                  additionalProperties: false,
+                },
+              ])
+            ),
+            required: keys,
             additionalProperties: false,
           },
         },
@@ -49,8 +87,8 @@ const claude = (() => {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
   return async (messages: Anthropic.Messages.MessageParam[]) => {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-haiku-latest",
-      max_tokens: 2048,
+      model: "claude-3-7-sonnet-latest",
+      max_tokens: 4096,
       messages,
       tools: [
         {
@@ -60,6 +98,26 @@ const claude = (() => {
             type: "object",
             properties: calculateAxisJSONSchema("claude"),
             required: ["x", "y", "z"],
+            additionalProperties: false,
+          },
+        },
+        {
+          name: "pose",
+          description: "Pose a humanoid figure in 3D space.",
+          input_schema: {
+            type: "object",
+            properties: Object.fromEntries(
+              keys.map((key) => [
+                key,
+                {
+                  type: "object",
+                  properties: calculateAxisJSONSchema("claude"),
+                  required: ["x", "y", "z"],
+                  additionalProperties: false,
+                },
+              ])
+            ),
+            required: keys,
             additionalProperties: false,
           },
         },
@@ -76,11 +134,11 @@ const claude = (() => {
 export async function completion({
   query,
   model,
-  state = [],
+  state,
 }: {
   query: string;
   model: "openai" | "claude";
-  state: Array<Vec3>;
+  state: Record<string, Vec3>;
 }) {
   const messages = [{ role: "user" as const, content: MESSAGE(query, state) }];
 

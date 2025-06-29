@@ -22,21 +22,21 @@ export const Scene: FC<{
         box={BOX}
         sections={SECTIONS[0]}
         color="#ff0000"
-        opacity={0.1}
+        opacity={0}
       />
       <SlicingPlanes
         edge="y"
         box={BOX}
         sections={SECTIONS[1]}
         color="#00ff00"
-        opacity={0.1}
+        opacity={0}
       />
       <SlicingPlanes
         edge="z"
         box={BOX}
         sections={SECTIONS[2]}
         color="#0000ff"
-        opacity={0.1}
+        opacity={0}
       />
 
       {/* Intersection points */}
@@ -56,7 +56,7 @@ export const Scene: FC<{
       ))}
 
       {/* Axes helper (optional) */}
-      <axesHelper args={[5]} />
+      {/* <axesHelper args={[5]} /> */}
     </Canvas>
   );
 };

@@ -31,24 +31,24 @@ const colors = [
   "#880000",
 ];
 
-const _stick: Array<Vec3> = [
-  [0, 2, 1.25],
-  [0, 1, 1.25],
-  [-0.75, 1, 1.25],
-  [0.75, 1, 1.25],
-  [-0.75, 0, 1.25],
-  [0.75, 0, 1.25],
-  [0, -1, 1.25],
-  [-0.75, -1, 1.25],
-  [0.75, -1, 1.25],
-  [-0.75, -3, 1.25],
-  [0.75, -3, 1.25],
-  [-0.75, -2, 1.25],
-  [0.75, -2, 1.25],
-];
+const _stick: Record<string, Vec3> = {
+  head: [0, 2, 1.25],
+  chest: [0, 1, 1.25],
+  rightShoulder: [-0.75, 1, 1.25],
+  leftShoulder: [0.75, 1, 1.25],
+  rightHand: [-0.75, 0, 1.25],
+  leftHand: [0.75, 0, 1.25],
+  sacrum: [0, -1, 1.25],
+  rightHip: [-0.75, -1, 1.25],
+  leftHip: [0.75, -1, 1.25],
+  rightKnee: [-0.75, -3, 1.25],
+  leftKnee: [0.75, -3, 1.25],
+  leftFoot: [-0.75, -2, 1.25],
+  rightFoot: [0.75, -2, 1.25],
+};
 
 export default function Home() {
-  const [points, setPoints] = useState<Array<Vec3>>(_stick);
+  const [points, setPoints] = useState(_stick);
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -63,6 +63,22 @@ export default function Home() {
       z: z.number(),
     });
 
+    const figureSchema = z.object({
+      head: pointSchema,
+      chest: pointSchema,
+      rightShoulder: pointSchema,
+      leftShoulder: pointSchema,
+      rightHand: pointSchema,
+      leftHand: pointSchema,
+      sacrum: pointSchema,
+      rightHip: pointSchema,
+      leftHip: pointSchema,
+      rightKnee: pointSchema,
+      leftKnee: pointSchema,
+      leftFoot: pointSchema,
+      rightFoot: pointSchema,
+    });
+
     const responses = await Promise.all([
       completion({
         ...formSchema.parse(Object.fromEntries(new FormData(event.currentTarget))),
@@ -71,29 +87,38 @@ export default function Home() {
     ]).then((responses) =>
       responses.map((res) =>
         match(res)
-          .with(P.array({ input: P._ }), (calls) =>
-            calls.map(({ input }) => pointSchema.parse(input))
+          .with(P.array({ name: "pose", input: P._ }), (calls) =>
+            calls.map(({ input }) => console.log(input) || figureSchema.parse(input))
           )
-          .with(P.array({ arguments: P._ }), (calls) =>
-            calls.map(({ arguments: args }) => pointSchema.parse(JSON.parse(args)))
+          .with(P.array({ name: "pose", arguments: P.string }), (calls) =>
+            calls.map(({ arguments: args }) => figureSchema.parse(JSON.parse(args)))
           )
+          // .with(P.array({ name: "plot", input: P._ }), (calls) =>
+          //   calls.map(({ input }) => pointSchema.parse(input))
+          // )
+          // .with(P.array({ arguments: P._ }), (calls) =>
+          //   calls.map(({ arguments: args }) => pointSchema.parse(JSON.parse(args)))
+          // )
           .run()
       )
     );
 
-    const next = responses.flatMap((matches) =>
-      matches.map((m): Vec3 => [-m.x, m.y, m.z])
+    setPoints(
+      Object.fromEntries(
+        Object.entries(responses[0][0]).map(([key, value]) => [
+          key,
+          [value.x, value.y, value.z],
+        ])
+      )
     );
-    console.log("Next points:", next);
-    setPoints(next);
   };
 
   return (
     <div className="grid grid-rows-[1fr_auto] h-screen w-screen">
-      <Scene points={points} colors={colors} />
+      <Scene points={Object.values(points)} colors={colors} />
       <form onSubmit={handleSubmit} className="flex gap-2 m-2">
         <Input name="query" placeholder="Enter your query" />
-        <Select name="model" defaultValue="openai">
+        <Select name="model" defaultValue="claude">
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
