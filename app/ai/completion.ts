@@ -1,11 +1,12 @@
 "use server";
 
+import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import invariant from "tiny-invariant";
-import { z } from "zod";
-import { X_POSITIONS, Y_POSITIONS, Z_POSITIONS } from "../scene/grid";
+import { calculateAxisJSONSchema, Vec3 } from "../scene/grid";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const MESSAGE = (query: string, state: Array<Vec3>) => `${query}
+State: ${JSON.stringify(state, null, 2)}`;
 
 const DESCRIPTION = `Plot a point in a 3D grid.
 +X = right; -X = left
@@ -13,51 +14,82 @@ const DESCRIPTION = `Plot a point in a 3D grid.
 +Z = front, forward, deep; -Z = back, backward, shallow
 `;
 
-export async function completion(formData: FormData) {
-  const { query } = z
-    .object({ query: z.string().min(1, "Query is required") })
-    .parse(Object.fromEntries(formData.entries()));
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4.1-nano",
-    messages: [{ role: "user", content: `Plot a point at: ${query}` }],
-    tools: [
-      {
-        type: "function",
-        function: {
+const openai = (() => {
+  const ai = new OpenAI({});
+  return async (messages: OpenAI.Responses.ResponseInput) => {
+    const response = await ai.responses.create({
+      model: "gpt-4.1-nano",
+      input: messages,
+      tools: [
+        {
+          type: "function",
           strict: true,
           name: "plot",
           description: DESCRIPTION,
           parameters: {
             type: "object",
-            properties: {
-              x: {
-                type: "number",
-                enum: X_POSITIONS,
-              },
-              y: {
-                type: "number",
-                enum: Y_POSITIONS,
-              },
-              z: {
-                type: "number",
-                enum: Z_POSITIONS,
-              },
-            },
+            properties: calculateAxisJSONSchema("openai"),
             required: ["x", "y", "z"],
             additionalProperties: false,
           },
         },
-      },
-    ],
-    tool_choice: {
-      type: "function",
-      function: { name: "plot" },
-    },
-  });
+      ],
+      tool_choice: "auto",
+    });
 
-  const toolCall = response.choices[0].message.tool_calls?.[0];
-  invariant(toolCall, "Tool call is required");
+    const toolCalls = response.output.filter((m) => m.type === "function_call");
+    console.log(toolCalls);
+    invariant(toolCalls.length > 0, "Tool call is required");
 
-  return toolCall;
+    return toolCalls;
+  };
+})();
+
+const claude = (() => {
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+  return async (messages: Anthropic.Messages.MessageParam[]) => {
+    const response = await anthropic.messages.create({
+      model: "claude-3-5-haiku-latest",
+      max_tokens: 2048,
+      messages,
+      tools: [
+        {
+          name: "plot",
+          description: DESCRIPTION,
+          input_schema: {
+            type: "object",
+            properties: calculateAxisJSONSchema("claude"),
+            required: ["x", "y", "z"],
+            additionalProperties: false,
+          },
+        },
+      ],
+    });
+
+    const toolUses = response.content.filter((c) => c.type === "tool_use");
+    invariant(toolUses.length > 0, "Tool use is required");
+
+    return toolUses;
+  };
+})();
+
+export async function completion({
+  query,
+  model,
+  state = [],
+}: {
+  query: string;
+  model: "openai" | "claude";
+  state: Array<Vec3>;
+}) {
+  const messages = [{ role: "user" as const, content: MESSAGE(query, state) }];
+
+  switch (model) {
+    case "openai":
+      return openai(messages);
+    case "claude":
+      return claude(messages);
+    default:
+      throw new Error("Invalid model selected");
+  }
 }

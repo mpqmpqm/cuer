@@ -49,6 +49,54 @@ export function calculateAxisInfo(box: Vec3, sections: Vec3): AxisInfoResult {
   };
 }
 
+export function calculateAxisJSONSchema(
+  model: "openai" | "claude",
+  box: Vec3 = BOX,
+  sections: Vec3 = SECTIONS
+) {
+  const [width, height, depth] = box;
+  const [xSections, ySections, zSections] = sections;
+
+  switch (model) {
+    case "openai":
+      return {
+        x: {
+          type: "number",
+          enum: generatePositions(width, xSections),
+        },
+        y: {
+          type: "number",
+          enum: generatePositions(height, ySections),
+        },
+        z: {
+          type: "number",
+          enum: generatePositions(depth, zSections),
+        },
+      };
+    case "claude":
+      return {
+        x: {
+          type: "number",
+          minimum: -width / 2,
+          maximum: width / 2,
+          multipleOf: width / xSections,
+        },
+        y: {
+          type: "number",
+          minimum: -height / 2,
+          maximum: height / 2,
+          multipleOf: height / ySections,
+        },
+        z: {
+          type: "number",
+          minimum: -depth / 2,
+          maximum: depth / 2,
+          multipleOf: depth / zSections,
+        },
+      };
+  }
+}
+
 /**
  * Generates sorted positions along one axis, including boundary and internal split points.
  */
