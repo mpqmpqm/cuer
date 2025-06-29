@@ -14,6 +14,7 @@ import { useState } from "react";
 import { match, P } from "ts-pattern";
 import { z } from "zod";
 import { completion } from "./ai/completion";
+import RagdollScene from "./ragdoll/ragdoll";
 
 const colors = [
   "#ff0000",
@@ -109,6 +110,8 @@ export default function Home() {
       )
     );
   };
+
+  return <RagdollScene />;
 
   return (
     <div className="grid grid-rows-[1fr_auto] h-screen w-screen">
