@@ -14,7 +14,6 @@ import { useState } from "react";
 import { match, P } from "ts-pattern";
 import { z } from "zod";
 import { completion } from "./ai/completion";
-import { Vec3 } from "./scene/grid";
 
 const colors = [
   "#ff0000",
@@ -31,24 +30,22 @@ const colors = [
   "#880000",
 ];
 
-const _stick: Record<string, Vec3> = {
-  head: [0, 2, 1.25],
-  chest: [0, 1, 1.25],
-  rightShoulder: [-0.75, 1, 1.25],
-  leftShoulder: [0.75, 1, 1.25],
-  rightHand: [-0.75, 0, 1.25],
-  leftHand: [0.75, 0, 1.25],
-  // sacrum: [0, -1, 1.25],
-  rightHip: [-0.75, -1, 1.25],
-  leftHip: [0.75, -1, 1.25],
-  rightKnee: [-0.75, -3, 1.25],
-  leftKnee: [0.75, -3, 1.25],
-  leftFoot: [-0.75, -2, 1.25],
-  rightFoot: [0.75, -2, 1.25],
-};
-
 export default function Home() {
-  const [points, setPoints] = useState(_stick);
+  const [points, setPoints] = useState<Record<string, Vec3>>({
+    head: [0, 2, 0],
+    chest: [0, 1, 0],
+    rightShoulder: [-0.75, 1, 0],
+    leftShoulder: [0.75, 1, 0],
+    rightHand: [-0.75, 0, 0],
+    leftHand: [0.75, 0, 0],
+    sacrum: [0, -1, 0],
+    rightHip: [-0.75, -1, 0],
+    leftHip: [0.75, -1, 0],
+    rightKnee: [-0.75, -2, 0],
+    leftKnee: [0.75, -2, 0],
+    rightFoot: [0.75, -3, 0],
+    leftFoot: [-0.75, -3, 0],
+  });
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -70,7 +67,7 @@ export default function Home() {
       leftShoulder: pointSchema,
       rightHand: pointSchema,
       leftHand: pointSchema,
-      // sacrum: pointSchema,
+      sacrum: pointSchema,
       rightHip: pointSchema,
       leftHip: pointSchema,
       rightKnee: pointSchema,

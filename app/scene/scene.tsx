@@ -5,6 +5,8 @@ import { Canvas } from "@react-three/fiber";
 import { FC } from "react";
 import { DoubleSide } from "three";
 import { BOX, SECTIONS, Vec3 } from "./grid";
+import { Skeleton } from "./skeleton";
+import { JOINT_NAMES } from "./constants";
 
 // Function to create 6 boundary planes for the cube
 export function BoundaryPlanes({
@@ -172,6 +174,11 @@ export const Scene: FC<{
   points: Array<Vec3>;
   colors: Array<string>;
 }> = ({ points = [], colors = [] }) => {
+  // Convert points array back to object for skeleton
+  const jointsObject = Object.fromEntries(
+    JOINT_NAMES.map((name, index) => [name, points[index]])
+  );
+
   return (
     <Canvas style={{ height: "100%", width: "100%" }} camera={{ position: [0, 0, 15] }}>
       <OrbitControls />
@@ -208,6 +215,9 @@ export const Scene: FC<{
           <meshBasicMaterial color={colors[index % colors.length]} />
         </mesh>
       ))}
+
+      {/* Add skeleton */}
+      <Skeleton joints={jointsObject} />
 
       {/* Axes helper (optional) */}
       <axesHelper args={[5]} />

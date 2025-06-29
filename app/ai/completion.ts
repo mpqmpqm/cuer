@@ -12,7 +12,7 @@ const keys = [
   "leftShoulder",
   "rightHand",
   "leftHand",
-  // "sacrum",
+  "sacrum",
   "rightHip",
   "leftHip",
   "rightKnee",
@@ -24,11 +24,13 @@ const keys = [
 const MESSAGE = (query: string, state: Record<string, Vec3>) => `${query}
 State: ${JSON.stringify(state, null, 2)}`;
 
-const DESCRIPTION = `Plot a point in a 3D grid.
+const PLOT = `Plot a point in a 3D grid.
 +X = right; -X = left
 +Y = up, top, high; -Y = down, bottom, low
 +Z = front, forward, deep; -Z = back, backward, shallow
 `;
+
+const POSE = `Pose a humanoid figure in 3D space.`;
 
 const openai = (() => {
   const ai = new OpenAI({});
@@ -41,7 +43,7 @@ const openai = (() => {
           type: "function",
           strict: true,
           name: "plot",
-          description: DESCRIPTION,
+          description: PLOT,
           parameters: {
             type: "object",
             properties: calculateAxisJSONSchema("openai"),
@@ -53,7 +55,7 @@ const openai = (() => {
           type: "function",
           name: "pose",
           strict: true,
-          description: "Pose a humanoid figure in 3D space.",
+          description: POSE,
           parameters: {
             type: "object",
             properties: Object.fromEntries(
@@ -93,7 +95,7 @@ const claude = (() => {
       tools: [
         {
           name: "plot",
-          description: DESCRIPTION,
+          description: PLOT,
           input_schema: {
             type: "object",
             properties: calculateAxisJSONSchema("claude"),
@@ -103,7 +105,7 @@ const claude = (() => {
         },
         {
           name: "pose",
-          description: "Pose a humanoid figure in 3D space.",
+          description: POSE,
           input_schema: {
             type: "object",
             properties: Object.fromEntries(
