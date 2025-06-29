@@ -7,7 +7,7 @@ import { X_POSITIONS, Y_POSITIONS, Z_POSITIONS } from "../scene/grid";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
-const SYSTEM = `Plot points in a 3D grid.
+const DESCRIPTION = `Plot a point in a 3D grid.
 +X = right; -X = left
 +Y = up, top, high; -Y = down, bottom, low
 +Z = front, forward, deep; -Z = back, backward, shallow
@@ -20,15 +20,14 @@ export async function completion(formData: FormData) {
 
   const response = await openai.chat.completions.create({
     model: "gpt-4.1-nano",
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: query },
-    ],
+    messages: [{ role: "user", content: `Plot a point at: ${query}` }],
     tools: [
       {
         type: "function",
         function: {
+          strict: true,
           name: "plot",
+          description: DESCRIPTION,
           parameters: {
             type: "object",
             properties: {
@@ -46,11 +45,15 @@ export async function completion(formData: FormData) {
               },
             },
             required: ["x", "y", "z"],
+            additionalProperties: false,
           },
         },
       },
     ],
-    tool_choice: "required",
+    tool_choice: {
+      type: "function",
+      function: { name: "plot" },
+    },
   });
 
   const toolCall = response.choices[0].message.tool_calls?.[0];

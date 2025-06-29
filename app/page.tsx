@@ -10,22 +10,24 @@ import { Vec3 } from "./scene/grid";
 
 const colors = ["#ff0000"];
 
+const _stick = [
+  [0, 2, 1.25],
+  [0, 1, 1.25],
+  [-0.75, 1, 1.25],
+  [0.75, 1, 1.25],
+  [-0.75, 0, 1.25],
+  [0.75, 0, 1.25],
+  [0, -1, 1.25],
+  [-0.75, -1, 1.25],
+  [0.75, -1, 1.25],
+  [-0.75, -3, 1.25],
+  [0.75, -3, 1.25],
+  [-0.75, -2, 1.25],
+  [0.75, -2, 1.25],
+];
+
 export default function Home() {
-  const [points, setPoints] = useState<Array<Vec3>>([
-    [0, 2, 1.25],
-    [0, 1, 1.25],
-    [-0.75, 1, 1.25],
-    [0.75, 1, 1.25],
-    [-0.75, 0, 1.25],
-    [0.75, 0, 1.25],
-    [0, -1, 1.25],
-    [-0.75, -1, 1.25],
-    [0.75, -1, 1.25],
-    [-0.75, -3, 1.25],
-    [0.75, -3, 1.25],
-    [-0.75, -2, 1.25],
-    [0.75, -2, 1.25],
-  ]);
+  const [points, setPoints] = useState<Array<Vec3>>([]);
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const tool_call = await completion(new FormData(event.currentTarget));
