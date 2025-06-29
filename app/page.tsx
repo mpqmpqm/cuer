@@ -88,7 +88,7 @@ export default function Home() {
       responses.map((res) =>
         match(res)
           .with(P.array({ name: "pose", input: P._ }), (calls) =>
-            calls.map(({ input }) => console.log(input) || figureSchema.parse(input))
+            calls.map(({ input }) => figureSchema.parse(input))
           )
           .with(P.array({ name: "pose", arguments: P.string }), (calls) =>
             calls.map(({ arguments: args }) => figureSchema.parse(JSON.parse(args)))

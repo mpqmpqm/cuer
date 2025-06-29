@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "digest": "gitingest -i \"*.ts*\" -e components -e lib -e mcp"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.55.0",
