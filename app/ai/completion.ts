@@ -12,7 +12,7 @@ const keys = [
   "leftShoulder",
   "rightHand",
   "leftHand",
-  "sacrum",
+  // "sacrum",
   "rightHip",
   "leftHip",
   "rightKnee",
